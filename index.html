@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>美甲預約</title>
+  <style>
+    body{font-family:system-ui,"Noto Sans TC",Arial;max-width:720px;margin:30px auto;padding:0 16px;line-height:1.6}
+    .card{border:1px solid #ddd;border-radius:12px;padding:16px}
+    label{display:block;margin-top:10px;font-weight:600}
+    input,select,textarea{width:100%;padding:10px;border:1px solid #ccc;border-radius:10px}
+    textarea{min-height:110px}
+    button{margin-top:14px;padding:10px 14px;border:1px solid #333;border-radius:999px;background:#fff;cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .hint{color:#666;font-size:13px;margin-top:8px}
+    .ok{margin-top:12px}
+  </style>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+  <h1>美甲預約</h1>
+  <div class="card">
+    <form id="f">
+      <label>姓名</label>
+      <input name="name" required />
+
+      <label>手機</label>
+      <input name="phone" required />
+
+      <label>想預約日期</label>
+      <input name="date" type="date" required />
+
+      <label>想預約時間</label>
+      <input name="time" type="time" required />
+
+      <label>服務項目</label>
+      <select name="service" required>
+        <option value="">請選擇</option>
+        <option>凝膠</option>
+        <option>延甲</option>
+        <option>手繪</option>
+        <option>卸甲</option>
+      </select>
+
+      <label>備註（款式、顏色、是否需卸甲等）</label>
+      <textarea name="note"></textarea>
+
+      <button id="submitBtn" type="submit" disabled>初始化中...</button>
+      <div class="hint" id="hint"></div>
+      <div class="ok" id="ok"></div>
+    </form>
+  </div>
+
+  <script>
+    const LIFF_ID = "Tinan Nail";
+    const btn = document.getElementById("submitBtn");
+    const hint = document.getElementById("hint");
+    const ok = document.getElementById("ok");
+
+    async function init() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) {
+          // 在 LINE 內通常已登入；若不是，導去登入
+          liff.login();
+          return;
+        }
+        btn.disabled = false;
+        btn.textContent = "送出預約（會傳到 LINE）";
+        hint.textContent = "送出後會把預約內容傳到你與官方帳號的聊天室。";
+      } catch (e) {
+        btn.disabled = true;
+        btn.textContent = "初始化失敗";
+        hint.textContent = "LIFF 初始化失敗，請確認 LIFF ID 與上線網址設定。";
+        console.error(e);
+      }
+    }
+
+    document.getElementById("f").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      ok.textContent = "";
+
+      const fd = new FormData(e.target);
+      const data = Object.fromEntries(fd.entries());
+
+      const text =
+`美甲預約收到
+姓名：${data.name}
+手機：${data.phone}
+日期：${data.date}
+時間：${data.time}
+項目：${data.service}
+備註：${data.note || "（無）"}`;
+
+      try {
+        btn.disabled = true;
+        btn.textContent = "送出中...";
+
+        // 直接把訊息送到目前聊天室（你會在 LINE 看到）
+        await liff.sendMessages([{ type: "text", text }]);
+
+        ok.textContent = "已送出，請到 LINE 查看訊息。";
+        e.target.reset();
+      } catch (err) {
+        console.error(err);
+        ok.textContent = "送出失敗：請確認此頁是從 LINE 內開啟，且 LIFF 權限設定正確。";
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "送出預約（會傳到 LINE）";
+      }
+    });
+
+    init();
+  </script>
+</body>
+</html>
