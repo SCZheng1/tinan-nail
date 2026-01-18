@@ -78,7 +78,7 @@
 
   // 新增：Google Apps Script Web App 網址（你要換成自己的）
   const API_BASE = "https://script.google.com/macros/s/AKfycbxz5VOtsqLDL7lGDvBZNQbzq57OpQOA82tNYcr5biTdCmbiiFNDkn1-y1Zvk8i2zKWsJw/exec";
-  
+
   const btn = document.getElementById("submitBtn");
   const hint = document.getElementById("hint");
   const ok = document.getElementById("ok");
@@ -192,7 +192,31 @@
 
       // 如果你有做後端 reserve，應該在這裡先 POST 鎖時段成功再送 LINE
       //（先不強迫你加，因為你這題只問放哪裡）
+      // 先寫入 Google Sheet（鎖時段）
+      const payload = {
+        action: "reserve",
+        date: data.date,
+        artist: data.artist,
+        slot: data.slot,
+        name: data.name,
+        phone: data.phone,
+        service: data.service,
+        note: data.note || ""
+      };
 
+      // 用 text/plain 避免觸發 CORS preflight（比較穩）
+      const resp = await fetch(API_BASE, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await resp.json();
+      if (!result.ok) {
+        throw new Error(result.message || "reserve_failed");
+      }
+      
+      // reserve 成功才送 LINE
       await liff.sendMessages([{ type: "text", text }]);
 
       ok.textContent = "已送出，請到 LINE 查看訊息。";
