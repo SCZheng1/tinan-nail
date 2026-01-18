@@ -27,11 +27,23 @@
       <label>手機</label>
       <input name="phone" required />
 
+      <label>美甲師</label>
+      <select name="artist" id="artist" required>
+        <option value="">請選擇</option>
+        <option value="Doer">Doer</option>
+        <option value="Tiana">Tiana</option>
+      </select>
+      
       <label>想預約日期</label>
       <input name="date" type="date" required />
 
       <label>想預約時間</label>
-      <input name="time" type="time" required />
+      <select name="slot" id="slot" required>
+        <option value="">請選擇</option>
+        <option value="10:00-14:00">上午10:00~下午14:00</option>
+        <option value="14:00-18:00">下午14:00~下午18:00</option>
+        <option value="18:00-22:00">下午18:00~晚上22:00</option>
+      </select>
 
       <label>服務項目</label>
       <select name="service" required>
