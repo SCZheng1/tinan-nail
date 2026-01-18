@@ -36,10 +36,20 @@
       <label>服務項目</label>
       <select name="service" required>
         <option value="">請選擇</option>
-        <option>凝膠</option>
-        <option>延甲</option>
-        <option>手繪</option>
-        <option>卸甲</option>
+        <option>單色</option>
+        <option>雙色</option>
+        <option>貓眼</option>
+        <option>鏡面</option>
+        <option>他店卸甲</option>
+        <option>本店卸甲</option>
+        <option>法式</option>
+        <option>漸層</option>
+        <option>透明</option>
+        <option>設計款A</option>
+        <option>設計款B</option>
+        <option>設計款C</option>
+        <option>純卸甲</option>
+        <option>純保養</option>
       </select>
 
       <label>備註（款式、顏色、是否需卸甲等）</label>
@@ -52,65 +62,143 @@
   </div>
 
   <script>
-    const LIFF_ID = "2008834245-p7O8gOeL";
-    const btn = document.getElementById("submitBtn");
-    const hint = document.getElementById("hint");
-    const ok = document.getElementById("ok");
+  const LIFF_ID = "2008834245-p7O8gOeL";
 
-    async function init() {
+  // 新增：Google Apps Script Web App 網址（你要換成自己的）
+  const API_BASE = "https://script.google.com/macros/s/AKfycbxz5VOtsqLDL7lGDvBZNQbzq57OpQOA82tNYcr5biTdCmbiiFNDkn1-y1Zvk8i2zKWsJw/exec";
+
+  const btn = document.getElementById("submitBtn");
+  const hint = document.getElementById("hint");
+  const ok = document.getElementById("ok");
+
+  // 新增：抓 artist/date/slot 元件
+  const artistEl = document.getElementById("artist");
+  const dateEl = document.querySelector('input[name="date"]');
+  const slotEl = document.getElementById("slot");
+
+  // 新增：做法A（寫死每位美甲師可接時段）
+  const ARTIST_ALLOWED = {
+    "Doer":  ["10:00-14:00"],                 // 你自己改成 Doer 能接的
+    "Tiana": ["14:00-18:00", "18:00-22:00"]   // 你自己改成 Tiana 能接的
+  };
+
+  function setSlotEnabledByRule(artist) {
+    const allowed = new Set(ARTIST_ALLOWED[artist] || []);
+    [...slotEl.options].forEach(opt => {
+      if (!opt.value) return; // "請選擇"
+      opt.disabled = !allowed.has(opt.value);
+    });
+    if (slotEl.value && slotEl.options[slotEl.selectedIndex].disabled) {
+      slotEl.value = "";
+    }
+  }
+
+  async function lockBookedSlots(dateStr, artist) {
+    if (!dateStr || !artist) return;
+
+    const r = await fetch(
+      `${API_BASE}?action=availability&date=${encodeURIComponent(dateStr)}&artist=${encodeURIComponent(artist)}`
+    );
+    const j = await r.json();
+    const booked = new Set(j.booked || []);
+
+    [...slotEl.options].forEach(opt => {
+      if (!opt.value) return;
+      if (booked.has(opt.value)) opt.disabled = true;
+    });
+
+    if (slotEl.value && slotEl.options[slotEl.selectedIndex].disabled) {
+      slotEl.value = "";
+    }
+  }
+
+  async function refreshSlots() {
+    const dateStr = dateEl.value;
+    const artist = artistEl.value;
+
+    // 先全鎖
+    [...slotEl.options].forEach(opt => { if (opt.value) opt.disabled = true; });
+
+    if (!artist) return;
+
+    // 依美甲師規則開放
+    setSlotEnabledByRule(artist);
+
+    // 再鎖已被預約
+    if (dateStr) {
       try {
-        await liff.init({ liffId: LIFF_ID });
-        if (!liff.isLoggedIn()) {
-          // 在 LINE 內通常已登入；若不是，導去登入
-          liff.login();
-          return;
-        }
-        btn.disabled = false;
-        btn.textContent = "送出預約（會傳到 LINE）";
-        hint.textContent = "送出後會把預約內容傳到你與官方帳號的聊天室。";
+        await lockBookedSlots(dateStr, artist);
       } catch (e) {
-        btn.disabled = true;
-        btn.textContent = "初始化失敗";
-        hint.textContent = "LIFF 初始化失敗，請確認 LIFF ID 與上線網址設定。";
         console.error(e);
       }
     }
+  }
 
-    document.getElementById("f").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      ok.textContent = "";
+  // 新增：綁定事件（選美甲師/日期時會更新 slot）
+  artistEl.addEventListener("change", refreshSlots);
+  dateEl.addEventListener("change", refreshSlots);
 
-      const fd = new FormData(e.target);
-      const data = Object.fromEntries(fd.entries());
+  async function init() {
+    try {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return;
+      }
+      btn.disabled = false;
+      btn.textContent = "送出預約（會傳到 LINE）";
+      hint.textContent = "送出後會把預約內容傳到你與官方帳號的聊天室。";
+    } catch (e) {
+      btn.disabled = true;
+      btn.textContent = "初始化失敗";
+      hint.textContent = "LIFF 初始化失敗，請確認 LIFF ID 與上線網址設定。";
+      console.error(e);
+    }
+  }
 
-      const text =
+  document.getElementById("f").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    ok.textContent = "";
+
+    const fd = new FormData(e.target);
+    const data = Object.fromEntries(fd.entries());
+
+    // 必改：你現在是 slot 不是 time，並加入美甲師
+    const text =
 `美甲預約收到
+美甲師：${data.artist}
 姓名：${data.name}
 手機：${data.phone}
 日期：${data.date}
-時間：${data.time}
+時段：${data.slot}
 項目：${data.service}
 備註：${data.note || "（無）"}`;
 
-      try {
-        btn.disabled = true;
-        btn.textContent = "送出中...";
+    try {
+      btn.disabled = true;
+      btn.textContent = "送出中...";
 
-        // 直接把訊息送到目前聊天室（你會在 LINE 看到）
-        await liff.sendMessages([{ type: "text", text }]);
+      // 如果你有做後端 reserve，應該在這裡先 POST 鎖時段成功再送 LINE
+      //（先不強迫你加，因為你這題只問放哪裡）
 
-        ok.textContent = "已送出，請到 LINE 查看訊息。";
-        e.target.reset();
-      } catch (err) {
-        console.error(err);
-        ok.textContent = "送出失敗：請確認此頁是從 LINE 內開啟，且 LIFF 權限設定正確。";
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "送出預約（會傳到 LINE）";
-      }
-    });
+      await liff.sendMessages([{ type: "text", text }]);
 
-    init();
-  </script>
+      ok.textContent = "已送出，請到 LINE 查看訊息。";
+      e.target.reset();
+
+      // 新增：送出後刷新一下，避免UI顯示舊狀態
+      refreshSlots();
+
+    } catch (err) {
+      console.error(err);
+      ok.textContent = "送出失敗：請確認此頁是從 LINE 內開啟，且 LIFF 權限設定正確。";
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "送出預約（會傳到 LINE）";
+    }
+  });
+
+  init();
+</script>
 </body>
 </html>
